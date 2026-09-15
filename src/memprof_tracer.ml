@@ -24,7 +24,9 @@ let[@inline never] lock_tracer s =
   else begin
     try
       Mutex.lock s.mutex;
-      true
+      (* The failed flag can be set while we wait for the mutex, so test it
+         again once we hold the lock. *)
+      if Atomic.get s.failed then (Mutex.unlock s.mutex; false) else true
     with
       | Sys_error _ -> false
   end
@@ -127,17 +129,17 @@ let[@inline never] ext_alloc_slowpath ~bytes =
         let bytes_per_word = Sys.word_size / 8 in
         (* round up to an integer number of words *)
         let size_words = (bytes + bytes_per_word - 1) / bytes_per_word in
-        let samples = Atomic.make 0 in
+        let samples = ref 0 in
         while Atomic.get bytes_before_ext_sample <= 0 do
           ignore (Atomic.fetch_and_add bytes_before_ext_sample (draw_sampler_bytes s));
-          Atomic.incr samples
+          incr samples
         done;
-        assert (Atomic.get samples > 0);
+        assert (!samples > 0);
         let callstack = Printexc.get_callstack max_int in
         Some (Trace.Writer.put_alloc_with_raw_backtrace s.trace
                 (Trace.Timestamp.now ())
                 ~length:size_words
-                ~nsamples:(Atomic.get samples)
+                ~nsamples:!samples
                 ~source:External
                 ~callstack)
       with
@@ -148,7 +150,7 @@ let[@inline never] ext_alloc_slowpath ~bytes =
 type ext_token = Trace.Obj_id.t
 
 let ext_alloc ~bytes =
-  let n = Atomic.fetch_and_add bytes_before_ext_sample (- bytes) in
+  let n = Atomic.fetch_and_add bytes_before_ext_sample (- bytes) - bytes in
   if n <= 0 then ext_alloc_slowpath ~bytes else None
 
 let ext_free id =

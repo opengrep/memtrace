@@ -60,11 +60,11 @@ let trace_if_requested ?context ?sampling_rate () =
      in
      let sampling_rate =
        match Sys.getenv_opt "MEMTRACE_RATE" with
-       | Some rate -> check_rate (float_of_string_opt rate)
-       | None ->
-         match sampling_rate with
+       | None | Some "" ->
+         begin match sampling_rate with
          | Some _ -> check_rate sampling_rate
-         | None -> default_sampling_rate
+         | None -> default_sampling_rate end
+       | Some rate -> check_rate (float_of_string_opt rate)
      in
      let _s = start_tracing ~context ~sampling_rate ~filename in
      ()
