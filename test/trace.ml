@@ -38,7 +38,7 @@ let rec long_bt = function
 
 let go () =
   let filename = Filename.temp_file "memtrace" "ctf" in
-  let t = Memtrace.start_tracing ~context:(Some "ctx") ~sampling_rate:0.1 ~filename in
+  let t = Memtrace.start_tracing ~context:(Some "ctx") ~sampling_rate:0.1 ~filename () in
   leak (Array.make 4242 42);
   for _i = 1 to 10 do
     let n = long_bt 10_000 in

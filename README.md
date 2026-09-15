@@ -60,3 +60,10 @@ opam install memtrace_viewer
 memtrace-viewer ./fib_par_2.ctf
 ```
 
+
+## API changes
+
+- `start_tracing` and `trace_if_requested` take an optional
+  `?memprof:(module Memtrace.Memprof_sig)`, defaulting to `Gc.Memprof`.
+- `start_tracing` takes a final `()`.
+- Requires OCaml 5.3 or later.

@@ -1,7 +1,12 @@
+module type Memprof_sig = sig
+  include module type of Stdlib.Gc.Memprof
+end
+
 type t =
   { failed : bool Atomic.t;
     stopped : bool Atomic.t;
     mutex : Mutex.t;
+    stop_memprof : unit -> unit;
     report_exn : exn -> unit;
     trace : Trace.Writer.t;
     ext_sampler : Geometric_sampler.t; }
@@ -52,10 +57,16 @@ let default_report_exn e =
      Printexc.print_backtrace stderr;
      flush stderr
 
-let start ?(report_exn=default_report_exn) ~sampling_rate trace =
+let default_memprof = (module Stdlib.Gc.Memprof : Memprof_sig)
+
+let start ?(report_exn=default_report_exn) ?(memprof = default_memprof)
+      ~sampling_rate trace =
+  let (module Memprof : Memprof_sig) = memprof in
   let ext_sampler = Geometric_sampler.make ~sampling_rate () in
   let mutex = Mutex.create () in
+  let profile : Memprof.t option ref = ref None in
   let s = { trace; mutex; stopped = Atomic.make false; failed = Atomic.make false;
+            stop_memprof = (fun () -> Memprof.stop (); Option.iter Memprof.discard !profile);
             report_exn; ext_sampler } in
   let tracker : (_,_) Gc.Memprof.tracker = {
     alloc_minor = (fun info ->
@@ -101,7 +112,7 @@ let start ?(report_exn=default_report_exn) ~sampling_rate trace =
         | exception e -> mark_failed s e) } in
   Atomic.set curr_active_tracer (Some s);
   Atomic.set bytes_before_ext_sample (draw_sampler_bytes s);
-  let _profile = Gc.Memprof.start ~sampling_rate ~callstack_size:max_int tracker in
+  profile := Some (Memprof.start ~sampling_rate ~callstack_size:max_int tracker);
   s
 
 let stop s =
@@ -111,7 +122,7 @@ let stop s =
      stopping.
    *)
   if (Atomic.compare_and_set s.stopped false true) then begin
-    Gc.Memprof.stop ();
+    s.stop_memprof ();
     if lock_tracer s then begin
       try Trace.Writer.close s.trace with e ->
         (Atomic.set s.failed true; s.report_exn e);
