@@ -1,3 +1,7 @@
+module type Memprof_sig = Memprof_tracer.Memprof_sig
+
+val default_memprof : (module Memprof_sig)
+
 (** If the MEMTRACE environment variable is set, begin tracing to the file
     it specifies, and continue tracing until the process exits.
 
@@ -11,16 +15,23 @@
 
     May raise Unix.Unix_error if the specified file cannot be opened, or
     Invalid_argument if the MEMTRACE_RATE parameter is ill-formed. *)
-val trace_if_requested : ?context:string -> ?sampling_rate:float -> unit -> unit
+val trace_if_requested :
+  ?memprof:(module Memprof_sig) ->
+  ?context:string ->
+  ?sampling_rate:float ->
+  unit ->
+  unit
 
 (** Tracing can also be manually started and stopped. *)
 type tracer
 
 (** Manually start tracing *)
 val start_tracing :
+  ?memprof:(module Memprof_sig) ->
   context:string option ->
   sampling_rate:float ->
   filename:string ->
+  unit ->
   tracer
 
 (** Manually stop tracing *)

@@ -1,7 +1,7 @@
 let test_fork ~quick_exit () =
   let filename = Filename.temp_file "memtrace" "ctf" in
   Unix.putenv "MEMTRACE" filename;
-  let tr = Memtrace.start_tracing ~context:None ~sampling_rate:1. ~filename in
+  let tr = Memtrace.start_tracing ~context:None ~sampling_rate:1. ~filename () in
   let alloc_before = 1234 and alloc_after = 7364 and alloc_child = 42 in
   let _ = Sys.opaque_identity Array.make alloc_before "a" in
   begin match Unix.fork () with

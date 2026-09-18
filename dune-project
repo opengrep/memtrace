@@ -14,4 +14,5 @@
  (synopsis "Streaming client for Memprof")
  (description "Generates compact traces of a program's memory use.")
  (depends
-  (ocaml (>= 4.11.0))))
+  (domainslib :with-test)
+  (ocaml (>= 5.3.0))))

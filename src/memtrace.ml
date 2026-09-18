@@ -2,7 +2,11 @@ type tracer = Memprof_tracer.t
 
 let getpid64 () = Int64.of_int (Unix.getpid ())
 
-let start_tracing ~context ~sampling_rate ~filename =
+module type Memprof_sig = Memprof_tracer.Memprof_sig
+
+let default_memprof = Memprof_tracer.default_memprof
+
+let start_tracing ?(memprof = default_memprof) ~context ~sampling_rate ~filename () =
   if Memprof_tracer.active_tracer () <> None then
     failwith "Only one Memtrace instance may be active at a time";
   let fd =
@@ -36,7 +40,7 @@ let start_tracing ~context ~sampling_rate ~filename =
       context;
     } in
   let trace = Trace.Writer.create fd ~getpid:getpid64 info in
-  Memprof_tracer.start ~sampling_rate trace
+  Memprof_tracer.start ~memprof ~sampling_rate trace
 
 let stop_tracing t =
   Memprof_tracer.stop t
@@ -46,7 +50,7 @@ let () =
 
 let default_sampling_rate = 1e-6
 
-let trace_if_requested ?context ?sampling_rate () =
+let trace_if_requested ?(memprof = default_memprof) ?context ?sampling_rate () =
   match Sys.getenv_opt "MEMTRACE" with
   | None | Some "" -> ()
   | Some filename ->
@@ -60,13 +64,13 @@ let trace_if_requested ?context ?sampling_rate () =
      in
      let sampling_rate =
        match Sys.getenv_opt "MEMTRACE_RATE" with
-       | Some rate -> check_rate (float_of_string_opt rate)
        | None | Some "" ->
-         match sampling_rate with
+         begin match sampling_rate with
          | Some _ -> check_rate sampling_rate
-         | None -> default_sampling_rate
+         | None -> default_sampling_rate end
+       | Some rate -> check_rate (float_of_string_opt rate)
      in
-     let _s = start_tracing ~context ~sampling_rate ~filename in
+     let _s = start_tracing ~memprof ~context ~sampling_rate ~filename () in
      ()
 
 module Trace = Trace
